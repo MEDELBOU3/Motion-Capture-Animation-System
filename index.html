@@ -1,726 +1,770 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Motion Capture Animation System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <title>Advanced Motion Capture with Soldier Character</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
+      font-family: 'Arial', sans-serif;
+    }
+    video { display: none; }
+    canvas { position: absolute; top: 0; left: 0; }
+    
+    .ui-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 15px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      max-width: 300px;
+    }
 
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden;
-            position: relative;
-        }
+    .debug-overlay {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: white;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 15px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      max-width: 250px;
+      font-size: 12px;
+    }
 
-        .container {
-            display: flex;
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
+    .help-tips {
+      position: absolute;
+      bottom: 80px;
+      left: 20px;
+      color: white;
+      z-index: 100;
+      background: rgba(0,0,0,0.8);
+      padding: 15px;
+      border-radius: 10px;
+      max-width: 300px;
+      font-size: 13px;
+      border-left: 4px solid #4ecdc4;
+    }
+    
+    .status {
+      margin: 5px 0;
+      padding: 5px 10px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.1);
+      font-size: 14px;
+    }
+    
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 18px;
+      text-align: center;
+      z-index: 200;
+      background: rgba(0,0,0,0.8);
+      padding: 30px;
+      border-radius: 15px;
+      max-width: 400px;
+    }
+    
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+    
+    button {
+      margin: 0 5px;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    button:hover {
+      background: rgba(255,255,255,0.3);
+      transform: scale(1.05);
+    }
 
-        .camera-panel {
-            width: 30%;
-            background: rgba(0, 0, 0, 0.8);
-            border-right: 2px solid #00ff88;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
+    .error {
+      color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+    }
 
-        .canvas-container {
-            width: 70%;
-            position: relative;
-            background: linear-gradient(45deg, #1a1a1a, #2d2d2d);
-        }
-
-        #videoElement {
-            width: 100%;
-            height: 60%;
-            object-fit: cover;
-            border-radius: 10px;
-            margin: 10px;
-            width: calc(100% - 20px);
-            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
-        }
-
-        #poseCanvas {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            border: 2px solid #00ff88;
-            border-radius: 10px;
-            background: transparent;
-            pointer-events: none;
-        }
-
-        .controls {
-            padding: 20px;
-            color: white;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .control-group {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 136, 0.3);
-        }
-
-        .control-group h3 {
-            color: #00ff88;
-            margin-bottom: 10px;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        button {
-            background: linear-gradient(45deg, #00ff88, #00cc6a);
-            border: none;
-            padding: 12px 20px;
-            border-radius: 25px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
-        }
-
-        button:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .status {
-            padding: 10px;
-            background: rgba(0, 255, 136, 0.1);
-            border-left: 4px solid #00ff88;
-            border-radius: 5px;
-            font-size: 12px;
-            color: #00ff88;
-        }
-
-        select {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid #00ff88;
-            padding: 8px;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="range"] {
-            flex-grow: 1;
-            accent-color: #00ff88;
-        }
-
-        .slider-value {
-            color: #00ff88;
-            font-weight: bold;
-            min-width: 40px;
-            font-size: 12px;
-        }
-
-        #threeCanvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #00ff88;
-            font-size: 18px;
-            text-align: center;
-        }
-
-        .pose-info {
-            font-size: 11px;
-            color: #ccc;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-    </style>
+    .success {
+      color: #4ecdc4;
+      background: rgba(78, 205, 196, 0.1);
+      border: 1px solid rgba(78, 205, 196, 0.3);
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="camera-panel">
-            <video id="videoElement" autoplay muted playsinline></video>
-            <canvas id="poseCanvas"></canvas>
-            
-            <div class="controls">
-                <div class="control-group">
-                    <h3>Camera Controls</h3>
-                    <button id="startCamera">Start Camera</button>
-                    <button id="stopCamera" disabled>Stop Camera</button>
-                    <div class="status" id="cameraStatus">Camera: Inactive</div>
-                </div>
 
-                <div class="control-group">
-                    <h3>Character Model</h3>
-                    <select id="characterSelect">
-                        <option value="humanoid">Humanoid Stick Figure</option>
-                        <option value="robot">Robot Character</option>
-                        <option value="skeleton">Skeleton</option>
-                    </select>
-                </div>
+<div class="loading" id="loadingScreen">
+  <div>🎭 Initializing Motion Capture System...</div>
+  <div style="margin-top: 15px; font-size: 14px;">
+    <div id="loadingStep">Setting up camera access...</div>
+    <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">Please allow camera permissions when prompted</div>
+  </div>
+</div>
 
-                <div class="control-group">
-                    <h3>Animation Settings</h3>
-                    <div class="slider-container">
-                        <span>Smoothing:</span>
-                        <input type="range" id="smoothingSlider" min="0" max="1" step="0.1" value="0.3">
-                        <span class="slider-value" id="smoothingValue">0.3</span>
-                    </div>
-                    <div class="slider-container">
-                        <span>Scale:</span>
-                        <input type="range" id="scaleSlider" min="0.5" max="3" step="0.1" value="1">
-                        <span class="slider-value" id="scaleValue">1</span>
-                    </div>
-                </div>
+<div class="debug-overlay" id="debugOverlay" style="display: none;">
+  <div><strong>📊 Debug Info</strong></div>
+  <div>Video Size: <span id="videoSize">-</span></div>
+  <div>FPS: <span id="fps">-</span></div>
+  <div>Last Detection: <span id="lastDetection">-</span></div>
+  <div>Confidence: <span id="confidence">-</span></div>
+  <div>Character Bones: <span id="boneCount">-</span></div>
+</div>
 
-                <div class="control-group">
-                    <h3>Pose Detection</h3>
-                    <div class="status" id="poseStatus">Pose: Not Detected</div>
-                    <div class="pose-info" id="poseInfo">No pose data available</div>
-                </div>
-            </div>
-        </div>
+<div class="help-tips" id="helpTips">
+  <div><strong>💡 Tips for Better Detection:</strong></div>
+  <div>• Stand 3-6 feet from camera</div>
+  <div>• Ensure good lighting</div>
+  <div>• Keep full body in frame</div>
+  <div>• Avoid busy backgrounds</div>
+  <div>• Move slowly at first</div>
+</div>
 
-        <div class="canvas-container">
-            <canvas id="threeCanvas"></canvas>
-            <div class="loading" id="loadingIndicator">Loading 3D Environment...</div>
-        </div>
-    </div>
+<div class="ui-overlay" id="uiOverlay" style="display: none;">
+  <div class="status" id="cameraStatusDiv">📹 Camera: <span id="cameraStatus">Starting...</span></div>
+  <div class="status" id="modelStatusDiv">🤖 AI Model: <span id="modelStatus">Loading...</span></div>
+  <div class="status" id="characterStatusDiv">👤 Character: <span id="characterStatus">Loading...</span></div>
+  <div class="status" id="poseStatusDiv">🎯 Pose: <span id="poseStatus">Waiting...</span></div>
+</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.2.0/tf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow-models/0.0.1/posenet.min.js"></script>
+<div class="controls" id="controls" style="display: none;">
+  <button onclick="toggleCharacterVisibility()">Toggle Character</button>
+  <button onclick="toggleSkeleton()">Toggle Skeleton</button>
+  <button onclick="resetCharacterPose()">Reset Pose</button>
+  <button onclick="toggleDebug()">Debug Info</button>
+  <button onclick="toggleVideoPreview()">Show Camera</button>
+</div>
 
-    <script>
-        // Global variables
-        let scene, camera, renderer, animationFrame;
-        let videoElement, poseCanvas, poseCtx;
-        let posenet, stream;
-        let currentPoses = [];
-        let virtualCharacter = null;
-        let smoothingFactor = 0.3;
-        let characterScale = 1;
-        let isDetecting = false;
+<video id="video" width="640" height="480" autoplay playsinline muted></video>
 
-        // Bone connections for human skeleton
-        const POSE_CONNECTIONS = [
-            ['left_shoulder', 'right_shoulder'],
-            ['left_shoulder', 'left_elbow'],
-            ['left_elbow', 'left_wrist'],
-            ['right_shoulder', 'right_elbow'],
-            ['right_elbow', 'right_wrist'],
-            ['left_shoulder', 'left_hip'],
-            ['right_shoulder', 'right_hip'],
-            ['left_hip', 'right_hip'],
-            ['left_hip', 'left_knee'],
-            ['left_knee', 'left_ankle'],
-            ['right_hip', 'right_knee'],
-            ['right_knee', 'right_ankle'],
-            ['nose', 'left_eye'],
-            ['nose', 'right_eye'],
-            ['left_eye', 'left_ear'],
-            ['right_eye', 'right_ear']
-        ];
+<!-- Load Three.js first -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/animation/AnimationClip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/animation/AnimationMixer.min.js"></script>
 
-        // Initialize the application
-        async function init() {
-            setupElements();
-            await setupThreeJS();
-            await setupPoseNet();
-            setupEventListeners();
-            animate();
-            document.getElementById('loadingIndicator').style.display = 'none';
+<!-- Then TensorFlow -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+
+<script>
+// Global variables
+let video = document.getElementById('video');
+let scene, camera, renderer, controls;
+let detector;
+let skeleton = {};
+let character = null;
+let mixer = null;
+let characterBones = {};
+let showCharacter = true;
+let showSkeleton = true;
+let isInitialized = false;
+let animationId = null;
+let showDebug = false;
+let showVideoPreview = false;
+let frameCount = 0;
+let lastTime = performance.now();
+let currentFPS = 0;
+
+// UI elements
+const loadingScreen = document.getElementById('loadingScreen');
+const loadingStep = document.getElementById('loadingStep');
+const uiOverlay = document.getElementById('uiOverlay');
+const debugOverlay = document.getElementById('debugOverlay');
+const helpTips = document.getElementById('helpTips');
+const controlsDiv = document.getElementById('controls');
+const cameraStatus = document.getElementById('cameraStatus');
+const modelStatus = document.getElementById('modelStatus');
+const characterStatus = document.getElementById('characterStatus');
+const poseStatus = document.getElementById('poseStatus');
+
+// Utility function to update status with styling
+function updateStatus(element, statusElement, message, type = 'normal') {
+  statusElement.textContent = message;
+  element.className = 'status';
+  if (type === 'error') element.classList.add('error');
+  if (type === 'success') element.classList.add('success');
+}
+
+// Initialize webcam with better error handling
+async function initWebcam() {
+  try {
+    loadingStep.textContent = 'Requesting camera access...';
+    updateStatus(document.getElementById('cameraStatusDiv'), cameraStatus, 'Requesting access...');
+
+    // Check if getUserMedia is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Camera API not supported in this browser');
+    }
+
+    const constraints = {
+      video: {
+        width: { ideal: 640, min: 320 },
+        height: { ideal: 480, min: 240 },
+        facingMode: 'user',
+        frameRate: { ideal: 30, min: 15 }
+      }
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+
+    return new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        loadingStep.textContent = 'Camera ready!';
+        updateStatus(document.getElementById('cameraStatusDiv'), cameraStatus, '✅ Active', 'success');
+        resolve();
+      };
+      video.onerror = () => {
+        reject(new Error('Failed to load video stream'));
+      };
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        reject(new Error('Camera initialization timeout'));
+      }, 10000);
+    });
+  } catch (error) {
+    updateStatus(document.getElementById('cameraStatusDiv'), cameraStatus, '❌ Failed', 'error');
+    throw new Error(`Camera Error: ${error.message}`);
+  }
+}
+
+// Load Soldier character model
+async function loadSoldierCharacter() {
+  return new Promise((resolve, reject) => {
+    const loader = new THREE.GLTFLoader();
+    const soldierUrl = 'https://threejs.org/examples/models/gltf/Soldier.glb';
+    
+    loader.load(
+      soldierUrl,
+      function (gltf) {
+        const model = gltf.scene;
+        
+        // Scale and position the model
+        model.scale.set(0.5, 0.5, 0.5);
+        model.position.set(0, -1.5, 0);
+        
+        // Create animation mixer
+        mixer = new THREE.AnimationMixer(model);
+        
+        // Play all animations (we'll override them with our motion capture)
+        gltf.animations.forEach((clip) => {
+          const action = mixer.clipAction(clip);
+          action.play();
+        });
+        
+        // Traverse the model to find bones
+        model.traverse((node) => {
+          if (node.isBone) {
+            characterBones[node.name] = node;
+          }
+        });
+        
+        // Store animations
+        model.animations = gltf.animations;
+        
+        // Add to scene
+        scene.add(model);
+        
+        // Count bones for debug info
+        if (showDebug) {
+          document.getElementById('boneCount').textContent = Object.keys(characterBones).length;
         }
+        
+        resolve(model);
+      },
+      undefined,
+      function (error) {
+        reject(new Error(`Failed to load character: ${error.message}`));
+      }
+    );
+  });
+}
 
-        function setupElements() {
-            videoElement = document.getElementById('videoElement');
-            poseCanvas = document.getElementById('poseCanvas');
-            poseCtx = poseCanvas.getContext('2d');
+// Create skeleton bone
+function createBone(name, color = 0x00ff00) {
+  const material = new THREE.LineBasicMaterial({ 
+    color, 
+    transparent: true,
+    opacity: 0.8
+  });
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)
+  ]);
+  const line = new THREE.Line(geometry, material);
+  line.name = name;
+  return line;
+}
+
+// Connect two joints
+function connect(joints, a, b) {
+  const ja = joints[a];
+  const jb = joints[b];
+  if (ja && jb && ja.score > 0.3 && jb.score > 0.3) {
+    return [
+      new THREE.Vector3((ja.x / 100 - 3.2) * 1.5, (-ja.y / 100 + 2.4) * 1.5, 0), 
+      new THREE.Vector3((jb.x / 100 - 3.2) * 1.5, (-jb.y / 100 + 2.4) * 1.5, 0)
+    ];
+  }
+  return null;
+}
+
+// Update skeleton visualization
+function updateSkeleton(joints) {
+  const connections = [
+    ['left_shoulder', 'right_shoulder'],
+    ['left_shoulder', 'left_elbow'],
+    ['left_elbow', 'left_wrist'],
+    ['right_shoulder', 'right_elbow'],
+    ['right_elbow', 'right_wrist'],
+    ['left_hip', 'right_hip'],
+    ['left_shoulder', 'left_hip'],
+    ['right_shoulder', 'right_hip'],
+    ['left_hip', 'left_knee'],
+    ['left_knee', 'left_ankle'],
+    ['right_hip', 'right_knee'],
+    ['right_knee', 'right_ankle']
+  ];
+
+  for (const [a, b] of connections) {
+    const name = a + '_' + b;
+    let bone = skeleton[name];
+    if (!bone) {
+      bone = createBone(name, 0x00ffff);
+      scene.add(bone);
+      skeleton[name] = bone;
+    }
+
+    bone.visible = showSkeleton;
+
+    const pts = connect(joints, a, b);
+    if (pts) {
+      const positions = bone.geometry.attributes.position.array;
+      positions[0] = pts[0].x; positions[1] = pts[0].y; positions[2] = pts[0].z;
+      positions[3] = pts[1].x; positions[4] = pts[1].y; positions[5] = pts[1].z;
+      bone.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+}
+
+// Map pose detection keypoints to character bones
+function updateCharacterPose(joints) {
+  if (!character || !showCharacter) return;
+
+  function getJoint(name) {
+    const joint = joints[name];
+    return joint && joint.score > 0.3 ? joint : null;
+  }
+
+  // Helper function to calculate angle between joints
+  function calculateAngle(joint1, joint2) {
+    return Math.atan2(joint2.y - joint1.y, joint2.x - joint1.x);
+  }
+
+  // Get keypoints
+  const nose = getJoint('nose');
+  const leftShoulder = getJoint('left_shoulder');
+  const rightShoulder = getJoint('right_shoulder');
+  const leftElbow = getJoint('left_elbow');
+  const rightElbow = getJoint('right_elbow');
+  const leftWrist = getJoint('left_wrist');
+  const rightWrist = getJoint('right_wrist');
+  const leftHip = getJoint('left_hip');
+  const rightHip = getJoint('right_hip');
+  const leftKnee = getJoint('left_knee');
+  const rightKnee = getJoint('right_knee');
+  const leftAnkle = getJoint('left_ankle');
+  const rightAnkle = getJoint('right_ankle');
+
+  // Update head rotation based on nose position
+  if (nose && characterBones['Head']) {
+    // Simple head tracking - could be enhanced
+    characterBones['Head'].rotation.y = (nose.x / video.videoWidth - 0.5) * 0.5;
+    characterBones['Head'].rotation.x = (0.5 - nose.y / video.videoHeight) * 0.3;
+  }
+
+  // Update arms with smooth transitions
+  if (leftShoulder && leftElbow && characterBones['LeftArm']) {
+    const angle = calculateAngle(leftShoulder, leftElbow);
+    THREE.MathUtils.lerp(characterBones['LeftArm'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (rightShoulder && rightElbow && characterBones['RightArm']) {
+    const angle = calculateAngle(rightShoulder, rightElbow);
+    THREE.MathUtils.lerp(characterBones['RightArm'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (leftElbow && leftWrist && characterBones['LeftForeArm']) {
+    const angle = calculateAngle(leftElbow, leftWrist);
+    THREE.MathUtils.lerp(characterBones['LeftForeArm'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (rightElbow && rightWrist && characterBones['RightForeArm']) {
+    const angle = calculateAngle(rightElbow, rightWrist);
+    THREE.MathUtils.lerp(characterBones['RightForeArm'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  // Update legs with smooth transitions
+  if (leftHip && leftKnee && characterBones['LeftUpLeg']) {
+    const angle = calculateAngle(leftHip, leftKnee);
+    THREE.MathUtils.lerp(characterBones['LeftUpLeg'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (rightHip && rightKnee && characterBones['RightUpLeg']) {
+    const angle = calculateAngle(rightHip, rightKnee);
+    THREE.MathUtils.lerp(characterBones['RightUpLeg'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (leftKnee && leftAnkle && characterBones['LeftLeg']) {
+    const angle = calculateAngle(leftKnee, leftAnkle);
+    THREE.MathUtils.lerp(characterBones['LeftLeg'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  if (rightKnee && rightAnkle && characterBones['RightLeg']) {
+    const angle = calculateAngle(rightKnee, rightAnkle);
+    THREE.MathUtils.lerp(characterBones['RightLeg'].rotation.z, angle + Math.PI/2, 0.2);
+  }
+
+  // Update spine based on shoulder positions with smooth transitions
+  if (leftShoulder && rightShoulder && characterBones['Spine2']) {
+    const shoulderCenterX = (leftShoulder.x + rightShoulder.x) / 2;
+    const shoulderCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+    const tilt = (rightShoulder.y - leftShoulder.y) / 100;
+    
+    THREE.MathUtils.lerp(characterBones['Spine2'].rotation.z, tilt * 0.5, 0.1);
+    THREE.MathUtils.lerp(characterBones['Spine1'].rotation.z, tilt * 0.3, 0.1);
+    THREE.MathUtils.lerp(characterBones['Spine'].rotation.z, tilt * 0.2, 0.1);
+  }
+
+  character.visible = showCharacter;
+}
+
+// Pose detection with enhanced sensitivity
+async function detectPose() {
+  if (!detector || !isInitialized || !video.videoWidth) return;
+
+  try {
+    // Update debug info
+    if (showDebug) {
+      document.getElementById('videoSize').textContent = `${video.videoWidth}×${video.videoHeight}`;
+      
+      // Calculate FPS
+      frameCount++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        currentFPS = Math.round((frameCount * 1000) / (now - lastTime));
+        document.getElementById('fps').textContent = currentFPS;
+        frameCount = 0;
+        lastTime = now;
+      }
+    }
+
+    const poses = await detector.estimatePoses(video, {
+      maxPoses: 1,
+      flipHorizontal: false,
+      scoreThreshold: 0.15,  // Lower threshold for better detection
+      nmsRadius: 20
+    });
+
+    if (poses.length > 0) {
+      const keypoints = poses[0].keypoints;
+      const joints = {};
+      let validPoints = 0;
+      let totalConfidence = 0;
+      
+      keypoints.forEach(kp => {
+        if (kp.score > 0.15) {  // Lower confidence threshold
+          joints[kp.name] = { 
+            x: kp.x, 
+            y: kp.y, 
+            score: kp.score
+          };
+          validPoints++;
+          totalConfidence += kp.score;
         }
-
-        async function setupThreeJS() {
-            // Scene setup
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0a);
-            
-            // Camera setup
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth * 0.7 / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 2, 5);
-            camera.lookAt(0, 1, 0);
-            
-            // Renderer setup
-            const canvas = document.getElementById('threeCanvas');
-            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-            renderer.setSize(window.innerWidth * 0.7, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 10, 5);
-            directionalLight.castShadow = true;
-            directionalLight.shadow.mapSize.width = 2048;
-            directionalLight.shadow.mapSize.height = 2048;
-            scene.add(directionalLight);
-            
-            // Add grid floor
-            const gridHelper = new THREE.GridHelper(10, 10, 0x00ff88, 0x333333);
-            scene.add(gridHelper);
-            
-            // Add virtual character
-            createVirtualCharacter('humanoid');
+      });
+      
+      const avgConfidence = totalConfidence / validPoints;
+      
+      if (validPoints >= 5) {  // Need at least 5 visible points
+        updateSkeleton(joints);
+        updateCharacterPose(joints);
+        updateStatus(document.getElementById('poseStatusDiv'), poseStatus, `✅ Active (${validPoints}/17 points)`, 'success');
+        
+        if (showDebug) {
+          document.getElementById('lastDetection').textContent = new Date().toLocaleTimeString();
+          document.getElementById('confidence').textContent = (avgConfidence * 100).toFixed(1) + '%';
         }
-
-        async function setupPoseNet() {
-            try {
-                posenet = await window.posenet.load({
-                    architecture: 'MobileNetV1',
-                    outputStride: 16,
-                    inputResolution: 513,
-                    multiplier: 0.75
-                });
-                updateStatus('poseStatus', 'PoseNet: Ready');
-            } catch (error) {
-                console.error('Error loading PoseNet:', error);
-                updateStatus('poseStatus', 'PoseNet: Error loading');
-            }
+        
+        // Hide help tips after successful detection
+        if (helpTips.style.display !== 'none') {
+          setTimeout(() => {
+            helpTips.style.display = 'none';
+          }, 3000);
         }
+      } else {
+        updateStatus(document.getElementById('poseStatusDiv'), poseStatus, `⚠️ Partial detection (${validPoints}/17 points)`);
+        helpTips.style.display = 'block';
+      }
+    } else {
+      updateStatus(document.getElementById('poseStatusDiv'), poseStatus, '⚠️ No pose detected');
+      helpTips.style.display = 'block';
+      
+      if (showDebug) {
+        document.getElementById('confidence').textContent = '0%';
+      }
+    }
+  } catch (error) {
+    updateStatus(document.getElementById('poseStatusDiv'), poseStatus, '❌ Detection error', 'error');
+    console.error('Pose detection error:', error);
+  }
+}
 
-        function setupEventListeners() {
-            document.getElementById('startCamera').addEventListener('click', startCamera);
-            document.getElementById('stopCamera').addEventListener('click', stopCamera);
-            document.getElementById('characterSelect').addEventListener('change', (e) => {
-                createVirtualCharacter(e.target.value);
-            });
-            
-            const smoothingSlider = document.getElementById('smoothingSlider');
-            smoothingSlider.addEventListener('input', (e) => {
-                smoothingFactor = parseFloat(e.target.value);
-                document.getElementById('smoothingValue').textContent = smoothingFactor;
-            });
-            
-            const scaleSlider = document.getElementById('scaleSlider');
-            scaleSlider.addEventListener('input', (e) => {
-                characterScale = parseFloat(e.target.value);
-                document.getElementById('scaleValue').textContent = characterScale;
-                if (virtualCharacter) {
-                    virtualCharacter.scale.set(characterScale, characterScale, characterScale);
-                }
-            });
+// Animation loop
+function animate() {
+  animationId = requestAnimationFrame(animate);
+  
+  if (isInitialized && detector) {
+    detectPose();
+  }
+  
+  // Update animation mixer
+  if (mixer) {
+    mixer.update(0.016); // Update with delta time
+  }
+  
+  // Update controls
+  if (controls) {
+    controls.update();
+  }
+  
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
+  }
+}
 
-            window.addEventListener('resize', onWindowResize);
-        }
+// Control functions
+function toggleCharacterVisibility() {
+  showCharacter = !showCharacter;
+  if (character) {
+    character.visible = showCharacter;
+  }
+}
 
-        async function startCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: 'user'
-                    }
-                });
-                
-                videoElement.srcObject = stream;
-                videoElement.onloadedmetadata = () => {
-                    poseCanvas.width = videoElement.videoWidth;
-                    poseCanvas.height = videoElement.videoHeight;
-                    startPoseDetection();
-                };
-                
-                document.getElementById('startCamera').disabled = true;
-                document.getElementById('stopCamera').disabled = false;
-                updateStatus('cameraStatus', 'Camera: Active');
-                
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                updateStatus('cameraStatus', 'Camera: Error - ' + error.message);
-            }
-        }
+function toggleSkeleton() {
+  showSkeleton = !showSkeleton;
+  Object.values(skeleton).forEach(bone => {
+    bone.visible = showSkeleton;
+  });
+}
 
-        function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            videoElement.srcObject = null;
-            isDetecting = false;
-            
-            document.getElementById('startCamera').disabled = false;
-            document.getElementById('stopCamera').disabled = true;
-            updateStatus('cameraStatus', 'Camera: Inactive');
-            updateStatus('poseStatus', 'Pose: Not Detecting');
-            
-            // Clear pose canvas
-            poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
-        }
+function resetCharacterPose() {
+  if (!character) return;
+  
+  Object.values(characterBones).forEach(bone => {
+    bone.rotation.set(0, 0, 0);
+  });
+}
 
-        async function startPoseDetection() {
-            isDetecting = true;
-            detectPose();
-        }
+function toggleDebug() {
+  showDebug = !showDebug;
+  debugOverlay.style.display = showDebug ? 'block' : 'none';
+}
 
-        async function detectPose() {
-            if (!isDetecting || !posenet || videoElement.readyState < 2) {
-                if (isDetecting) {
-                    requestAnimationFrame(detectPose);
-                }
-                return;
-            }
+function toggleVideoPreview() {
+  showVideoPreview = !showVideoPreview;
+  video.style.display = showVideoPreview ? 'block' : 'none';
+  video.style.position = 'fixed';
+  video.style.top = '20px';
+  video.style.right = '280px';
+  video.style.width = '160px';
+  video.style.height = '120px';
+  video.style.zIndex = '150';
+  video.style.border = '2px solid #4ecdc4';
+  video.style.borderRadius = '5px';
+}
 
-            try {
-                const poses = await posenet.estimateMultiplePoses(videoElement, {
-                    flipHorizontal: true,
-                    maxDetections: 1,
-                    scoreThreshold: 0.15,
-                    nmsRadius: 20
-                });
+// Main initialization
+async function main() {
+  try {
+    // Step 1: Initialize webcam
+    loadingStep.textContent = 'Initializing camera...';
+    await initWebcam();
 
-                if (poses.length > 0) {
-                    currentPoses = poses;
-                    drawPoses(poses);
-                    animateVirtualCharacter(poses[0]);
-                    updatePoseInfo(poses[0]);
-                    updateStatus('poseStatus', `Pose: Detected (${poses.length})`);
-                } else {
-                    updateStatus('poseStatus', 'Pose: No person detected');
-                }
+    // Step 2: Wait for TensorFlow to be ready
+    loadingStep.textContent = 'Loading AI models...';
+    updateStatus(document.getElementById('modelStatusDiv'), modelStatus, 'Loading...');
+    
+    // Wait for tf to be available
+    let attempts = 0;
+    while (typeof tf === 'undefined' && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
 
-            } catch (error) {
-                console.error('Pose detection error:', error);
-                updateStatus('poseStatus', 'Pose: Detection error');
-            }
+    if (typeof tf === 'undefined') {
+      throw new Error('TensorFlow.js failed to load');
+    }
 
-            if (isDetecting) {
-                requestAnimationFrame(detectPose);
-            }
-        }
+    await tf.ready();
 
-        function drawPoses(poses) {
-            poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
-            
-            poses.forEach(pose => {
-                // Draw keypoints
-                pose.keypoints.forEach(keypoint => {
-                    if (keypoint.score > 0.2) {
-                        poseCtx.beginPath();
-                        poseCtx.arc(keypoint.position.x, keypoint.position.y, 4, 0, 2 * Math.PI);
-                        poseCtx.fillStyle = '#00ff88';
-                        poseCtx.fill();
-                    }
-                });
+    // Step 3: Load pose detection model
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+      }
+    );
+    updateStatus(document.getElementById('modelStatusDiv'), modelStatus, '✅ Ready', 'success');
 
-                // Draw connections
-                POSE_CONNECTIONS.forEach(connection => {
-                    const keypoint1 = pose.keypoints.find(kp => kp.part === connection[0]);
-                    const keypoint2 = pose.keypoints.find(kp => kp.part === connection[1]);
-                    
-                    if (keypoint1 && keypoint2 && keypoint1.score > 0.2 && keypoint2.score > 0.2) {
-                        poseCtx.beginPath();
-                        poseCtx.moveTo(keypoint1.position.x, keypoint1.position.y);
-                        poseCtx.lineTo(keypoint2.position.x, keypoint2.position.y);
-                        poseCtx.strokeStyle = '#00ff88';
-                        poseCtx.lineWidth = 2;
-                        poseCtx.stroke();
-                    }
-                });
-            });
-        }
+    // Step 4: Initialize THREE.js scene
+    loadingStep.textContent = 'Creating 3D scene...';
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
 
-        function createVirtualCharacter(type) {
-            // Remove existing character
-            if (virtualCharacter) {
-                scene.remove(virtualCharacter);
-            }
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1.5, 5);
+    camera.lookAt(0, 1, 0);
 
-            virtualCharacter = new THREE.Group();
+    renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true 
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
 
-            switch (type) {
-                case 'humanoid':
-                    createHumanoidCharacter();
-                    break;
-                case 'robot':
-                    createRobotCharacter();
-                    break;
-                case 'skeleton':
-                    createSkeletonCharacter();
-                    break;
-            }
+    // Add orbit controls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.maxPolarAngle = Math.PI * 0.9;
+    controls.minDistance = 2;
+    controls.maxDistance = 10;
 
-            virtualCharacter.scale.set(characterScale, characterScale, characterScale);
-            scene.add(virtualCharacter);
-        }
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
 
-        function createHumanoidCharacter() {
-            const material = new THREE.MeshPhongMaterial({ color: 0x00ff88 });
-            
-            // Head
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.15), material);
-            head.position.set(0, 1.8, 0);
-            head.name = 'head';
-            virtualCharacter.add(head);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 5);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 1024;
+    directionalLight.shadow.mapSize.height = 1024;
+    scene.add(directionalLight);
 
-            // Torso
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.2), material);
-            torso.position.set(0, 1.2, 0);
-            torso.name = 'torso';
-            virtualCharacter.add(torso);
+    const pointLight = new THREE.PointLight(0x00ffff, 0.5, 100);
+    pointLight.position.set(-5, 5, 5);
+    scene.add(pointLight);
 
-            // Arms
-            const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), material);
-            leftArm.position.set(-0.3, 1.4, 0);
-            leftArm.name = 'leftArm';
-            virtualCharacter.add(leftArm);
+    // Ground
+    const groundGeometry = new THREE.PlaneGeometry(20, 20);
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x333333,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.5;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
-            const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), material);
-            rightArm.position.set(0.3, 1.4, 0);
-            rightArm.name = 'rightArm';
-            virtualCharacter.add(rightArm);
+    // Grid helper
+    const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x333333);
+    scene.add(gridHelper);
 
-            // Legs
-            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8), material);
-            leftLeg.position.set(-0.15, 0.4, 0);
-            leftLeg.name = 'leftLeg';
-            virtualCharacter.add(leftLeg);
+    // Step 5: Load character
+    loadingStep.textContent = 'Loading soldier character...';
+    updateStatus(document.getElementById('characterStatusDiv'), characterStatus, 'Loading...');
+    character = await loadSoldierCharacter();
+    
+    // Enable shadows for character
+    character.traverse((node) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+    
+    updateStatus(document.getElementById('characterStatusDiv'), characterStatus, '✅ Ready', 'success');
 
-            const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8), material);
-            rightLeg.position.set(0.15, 0.4, 0);
-            rightLeg.name = 'rightLeg';
-            virtualCharacter.add(rightLeg);
-        }
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    });
 
-        function createRobotCharacter() {
-            const material = new THREE.MeshPhongMaterial({ color: 0x4444ff });
-            
-            // Robot head (cube)
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.25), material);
-            head.position.set(0, 1.8, 0);
-            head.name = 'head';
-            virtualCharacter.add(head);
+    // Step 6: Finalize
+    loadingStep.textContent = 'Starting motion capture...';
+    loadingScreen.style.display = 'none';
+    uiOverlay.style.display = 'block';
+    controlsDiv.style.display = 'block';
 
-            // Robot body
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), material);
-            torso.position.set(0, 1.2, 0);
-            torso.name = 'torso';
-            virtualCharacter.add(torso);
+    isInitialized = true;
+    animate();
 
-            // Robot arms (rectangular)
-            const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), material);
-            leftArm.position.set(-0.35, 1.4, 0);
-            leftArm.name = 'leftArm';
-            virtualCharacter.add(leftArm);
+  } catch (error) {
+    console.error('Initialization error:', error);
+    loadingScreen.innerHTML = `
+      <div style="color: #ff6b6b;">❌ Initialization Failed</div>
+      <div style="margin-top: 15px; font-size: 14px;">${error.message}</div>
+      <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+        Troubleshooting tips:<br>
+        • Make sure camera permissions are allowed<br>
+        • Try refreshing the page<br>
+        • Use a modern browser (Chrome, Firefox, Edge)<br>
+        • Ensure stable internet connection for AI models
+      </div>
+    `;
+  }
+}
 
-            const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), material);
-            rightArm.position.set(0.35, 1.4, 0);
-            rightArm.name = 'rightArm';
-            virtualCharacter.add(rightArm);
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+  }
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+  }
+});
 
-            // Robot legs
-            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), material);
-            leftLeg.position.set(-0.15, 0.4, 0);
-            leftLeg.name = 'leftLeg';
-            virtualCharacter.add(leftLeg);
+// Start the application
+main();
 
-            const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), material);
-            rightLeg.position.set(0.15, 0.4, 0);
-            rightLeg.name = 'rightLeg';
-            virtualCharacter.add(rightLeg);
-        }
-
-        function createSkeletonCharacter() {
-            const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
-            
-            // Skeleton skull
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.12), material);
-            head.position.set(0, 1.8, 0);
-            head.name = 'head';
-            virtualCharacter.add(head);
-
-            // Spine
-            const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8), material);
-            spine.position.set(0, 1.2, 0);
-            spine.name = 'torso';
-            virtualCharacter.add(spine);
-
-            // Bone arms
-            const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6), material);
-            leftArm.position.set(-0.3, 1.4, 0);
-            leftArm.name = 'leftArm';
-            virtualCharacter.add(leftArm);
-
-            const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6), material);
-            rightArm.position.set(0.3, 1.4, 0);
-            rightArm.name = 'rightArm';
-            virtualCharacter.add(rightArm);
-
-            // Bone legs
-            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.8), material);
-            leftLeg.position.set(-0.15, 0.4, 0);
-            leftLeg.name = 'leftLeg';
-            virtualCharacter.add(leftLeg);
-
-            const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.8), material);
-            rightLeg.position.set(0.15, 0.4, 0);
-            rightLeg.name = 'rightLeg';
-            virtualCharacter.add(rightLeg);
-        }
-
-        function animateVirtualCharacter(pose) {
-            if (!virtualCharacter || !pose) return;
-
-            const keypoints = pose.keypoints;
-            
-            // Get key body points
-            const nose = keypoints.find(kp => kp.part === 'nose');
-            const leftShoulder = keypoints.find(kp => kp.part === 'leftShoulder');
-            const rightShoulder = keypoints.find(kp => kp.part === 'rightShoulder');
-            const leftHip = keypoints.find(kp => kp.part === 'leftHip');
-            const rightHip = keypoints.find(kp => kp.part === 'rightHip');
-            const leftElbow = keypoints.find(kp => kp.part === 'leftElbow');
-            const rightElbow = keypoints.find(kp => kp.part === 'rightElbow');
-            const leftWrist = keypoints.find(kp => kp.part === 'leftWrist');
-            const rightWrist = keypoints.find(kp => kp.part === 'rightWrist');
-
-            // Animate head tilt
-            if (nose && nose.score > 0.3) {
-                const head = virtualCharacter.getObjectByName('head');
-                if (head) {
-                    const tiltX = (nose.position.x - videoElement.videoWidth / 2) * 0.001;
-                    head.rotation.z = THREE.MathUtils.lerp(head.rotation.z, tiltX, smoothingFactor);
-                }
-            }
-
-            // Animate arms
-            if (leftShoulder && leftElbow && leftWrist) {
-                if (leftShoulder.score > 0.3 && leftElbow.score > 0.3) {
-                    const leftArm = virtualCharacter.getObjectByName('leftArm');
-                    if (leftArm) {
-                        const angle = Math.atan2(
-                            leftElbow.position.y - leftShoulder.position.y,
-                            leftElbow.position.x - leftShoulder.position.x
-                        );
-                        leftArm.rotation.z = THREE.MathUtils.lerp(leftArm.rotation.z, -angle, smoothingFactor);
-                    }
-                }
-            }
-
-            if (rightShoulder && rightElbow && rightWrist) {
-                if (rightShoulder.score > 0.3 && rightElbow.score > 0.3) {
-                    const rightArm = virtualCharacter.getObjectByName('rightArm');
-                    if (rightArm) {
-                        const angle = Math.atan2(
-                            rightElbow.position.y - rightShoulder.position.y,
-                            rightElbow.position.x - rightShoulder.position.x
-                        );
-                        rightArm.rotation.z = THREE.MathUtils.lerp(rightArm.rotation.z, -angle, smoothingFactor);
-                    }
-                }
-            }
-
-            // Animate torso lean
-            if (leftShoulder && rightShoulder && leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
-                const torso = virtualCharacter.getObjectByName('torso');
-                if (torso) {
-                    const shoulderAngle = Math.atan2(
-                        rightShoulder.position.y - leftShoulder.position.y,
-                        rightShoulder.position.x - leftShoulder.position.x
-                    );
-                    torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, shoulderAngle, smoothingFactor);
-                }
-            }
-
-            // Overall character position based on hip center
-            if (leftHip && rightHip && leftHip.score > 0.3 && rightHip.score > 0.3) {
-                const centerX = (leftHip.position.x + rightHip.position.x) / 2;
-                const normalizedX = (centerX - videoElement.videoWidth / 2) / videoElement.videoWidth * 4;
-                virtualCharacter.position.x = THREE.MathUtils.lerp(virtualCharacter.position.x, -normalizedX, smoothingFactor);
-            }
-        }
-
-        function updatePoseInfo(pose) {
-            const poseInfo = document.getElementById('poseInfo');
-            let info = `Confidence: ${(pose.score * 100).toFixed(1)}%\n`;
-            info += `Keypoints detected: ${pose.keypoints.filter(kp => kp.score > 0.2).length}/17\n\n`;
-            
-            const importantKeypoints = ['nose', 'leftShoulder', 'rightShoulder', 'leftHip', 'rightHip'];
-            importantKeypoints.forEach(part => {
-                const keypoint = pose.keypoints.find(kp => kp.part === part);
-                if (keypoint) {
-                    info += `${part}: ${(keypoint.score * 100).toFixed(0)}%\n`;
-                }
-            });
-            
-            poseInfo.textContent = info;
-        }
-
-        function updateStatus(elementId, message) {
-            document.getElementById(elementId).textContent = message;
-        }
-
-        function animate() {
-            animationFrame = requestAnimationFrame(animate);
-            
-            // Add some dynamic camera movement
-            const time = Date.now() * 0.001;
-            camera.position.x = Math.sin(time * 0.1) * 0.5;
-            
-            renderer.render(scene, camera);
-        }
-
-        function onWindowResize() {
-            const width = window.innerWidth * 0.7;
-            const height = window.innerHeight;
-            
-            camera.aspect = width / height;
-            camera.updateProjectionMatrix();
-            
-            renderer.setSize(width, height);
-        }
-
-        // Initialize the application when the page loads
-        window.addEventListener('load', init);
-    </script>
+</script>
 </body>
 </html>
